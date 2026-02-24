@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JYVOS Comptable — Connexion</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #c9a84c;
+    --gold-light: #f0d080;
+    --dark: #0a0c0f;
+    --dark2: #12151a;
+    --dark3: #1a1e26;
+    --surface: #1e2330;
+    --surface2: #252b3b;
+    --border: rgba(201,168,76,0.15);
+    --text: #e8eaf0;
+    --muted: #7a8099;
+    --green: #2ecc71;
+    --red: #e74c3c;
+    --blue: #3498db;
+    --admin-color: #c9a84c;
+    --user-color: #3498db;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--dark);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ===== BG ANIMATED ===== */
+  .bg-anim {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse at 20% 20%, rgba(201,168,76,0.07) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(52,152,219,0.05) 0%, transparent 50%);
+  }
+  .bg-anim::after {
+    content:'';
+    position: absolute; inset: 0;
+    background-image: repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(201,168,76,0.02) 40px, rgba(201,168,76,0.02) 41px),
+                      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(201,168,76,0.02) 40px, rgba(201,168,76,0.02) 41px);
+  }
+
+  /* ===== PAGES ===== */
+  .page { display: none; min-height: 100vh; position: relative; z-index: 1; }
+  .page.active { display: flex; }
+
+  /* ===== LOGIN PAGE ===== */
+  #login-page {
+    align-items: center; justify-content: center; padding: 20px;
+  }
+  .login-card {
+    background: var(--dark2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 48px 40px;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.5);
+    animation: slideUp 0.5s ease;
+  }
+  @keyframes slideUp {
+    from { opacity:0; transform: translateY(30px); }
+    to { opacity:1; transform: translateY(0); }
+  }
+  .login-logo {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 32px;
+  }
+  .logo-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: linear-gradient(135deg, var(--gold), #8b5e1a);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Syne', sans-serif; font-weight: 800;
+    font-size: 20px; color: var(--dark);
+  }
+  .logo-text { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 22px; }
+  .logo-text span { color: var(--gold); }
+  .login-title {
+    font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .login-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+
+  .tab-switch {
+    display: flex; background: var(--dark3); border-radius: 10px;
+    padding: 4px; margin-bottom: 28px; gap: 4px;
+  }
+  .tab-btn {
+    flex: 1; padding: 10px; border: none; border-radius: 8px;
+    background: transparent; color: var(--muted); font-size: 14px;
+    font-family: 'DM Sans', sans-serif; cursor: pointer;
+    transition: all 0.3s; font-weight: 500;
+  }
+  .tab-btn.active {
+    background: var(--surface); color: var(--text);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .tab-btn.admin.active { color: var(--gold); }
+  .tab-btn.user.active { color: var(--blue); }
+
+  .field { margin-bottom: 18px; }
+  .field label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+  .field input {
+    width: 100%; padding: 13px 16px;
+    background: var(--dark3); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; color: var(--text); font-size: 14px;
+    font-family: 'DM Sans', sans-serif; outline: none;
+    transition: border-color 0.2s;
+  }
+  .field input:focus { border-color: var(--gold); }
+  .field input.user-focus:focus { border-color: var(--blue); }
+
+  .admin-hint {
+    background: rgba(201,168,76,0.08); border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 10px; padding: 12px 14px; font-size: 12px;
+    color: var(--gold); margin-bottom: 18px; display: none;
+  }
+  .admin-hint.show { display: flex; align-items: center; gap: 8px; }
+
+  .btn-login {
+    width: 100%; padding: 14px; border: none; border-radius: 12px;
+    font-size: 15px; font-weight: 600; cursor: pointer;
+    font-family: 'Syne', sans-serif; letter-spacing: 0.3px;
+    transition: all 0.3s; margin-top: 8px;
+  }
+  .btn-login.admin-mode {
+    background: linear-gradient(135deg, var(--gold), #8b5e1a);
+    color: var(--dark);
+  }
+  .btn-login.user-mode {
+    background: linear-gradient(135deg, var(--blue), #1a5276);
+    color: #fff;
+  }
+  .btn-login:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  .error-msg {
+    background: rgba(231,76,60,0.12); border: 1px solid rgba(231,76,60,0.3);
+    color: var(--red); border-radius: 8px; padding: 10px 14px;
+    font-size: 13px; margin-top: 12px; display: none;
+  }
+  .error-msg.show { display: block; }
+
+  /* ===== ADMIN DASHBOARD ===== */
+  #admin-page { flex-direction: column; }
+  #user-page { flex-direction: column; }
+
+  .topbar {
+    height: 60px; background: var(--dark2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 24px; position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-badge {
+    padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.5px; text-transform: uppercase;
+  }
+  .badge-admin { background: rgba(201,168,76,0.15); color: var(--gold); border: 1px solid rgba(201,168,76,0.3); }
+  .badge-user { background: rgba(52,152,219,0.15); color: var(--blue); border: 1px solid rgba(52,152,219,0.3); }
+
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .user-info { text-align: right; }
+  .user-info .name { font-size: 14px; font-weight: 600; }
+  .user-info .role { font-size: 11px; color: var(--muted); }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 14px;
+  }
+  .avatar-admin { background: linear-gradient(135deg, var(--gold), #8b5e1a); color: var(--dark); }
+  .avatar-user { background: linear-gradient(135deg, var(--blue), #1a5276); color: #fff; }
+
+  .btn-logout {
+    padding: 7px 16px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+    background: transparent; color: var(--muted); font-size: 13px; cursor: pointer;
+    transition: all 0.2s; font-family: 'DM Sans', sans-serif;
+  }
+  .btn-logout:hover { background: rgba(231,76,60,0.1); color: var(--red); border-color: rgba(231,76,60,0.3); }
+
+  /* ===== CONTENT ===== */
+  .content { padding: 28px 24px; max-width: 1100px; margin: 0 auto; width: 100%; }
+  .page-title {
+    font-family: 'Syne', sans-serif; font-size: 24px; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .page-sub { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+  /* ===== STATS GRID ===== */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+  .stat-card {
+    background: var(--dark2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 20px;
+    transition: transform 0.2s;
+  }
+  .stat-card:hover { transform: translateY(-2px); }
+  .stat-label { font-size: 12px; color: var(--muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 700; }
+  .stat-change { font-size: 12px; margin-top: 4px; }
+  .up { color: var(--green); }
+  .down { color: var(--red); }
+
+  /* ===== SECTIONS ===== */
+  .section { margin-bottom: 28px; }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 600; }
+
+  /* ===== TABLE ===== */
+  .table-wrap {
+    background: var(--dark2); border: 1px solid var(--border);
+    border-radius: 14px; overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    padding: 12px 16px; font-size: 11px; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.5px;
+    background: var(--dark3); text-align: left; font-weight: 600;
+  }
+  td { padding: 13px 16px; font-size: 14px; border-top: 1px solid rgba(255,255,255,0.04); }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .status-badge {
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  }
+  .status-active { background: rgba(46,204,113,0.15); color: var(--green); }
+  .status-pending { background: rgba(241,196,15,0.15); color: #f1c40f; }
+  .status-inactive { background: rgba(231,76,60,0.1); color: var(--red); }
+
+  /* ===== ADMIN SECURITY SECTION ===== */
+  .security-panel {
+    background: var(--dark2); border: 1px solid rgba(201,168,76,0.2);
+    border-radius: 14px; padding: 24px;
+  }
+  .security-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .security-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .security-label { font-size: 14px; font-weight: 500; }
+  .security-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .toggle {
+    width: 44px; height: 24px; background: var(--dark3); border-radius: 12px;
+    position: relative; cursor: pointer; transition: background 0.3s; border: none;
+    flex-shrink: 0;
+  }
+  .toggle.on { background: var(--gold); }
+  .toggle::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 18px; height: 18px; background: #fff; border-radius: 50%;
+    transition: transform 0.3s;
+  }
+  .toggle.on::after { transform: translateX(20px); }
+
+  /* ===== RATING SECTION ===== */
+  .rating-section {
+    background: var(--dark2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px; margin-bottom: 28px;
+  }
+  .rating-header { margin-bottom: 20px; }
+  .rating-header h3 { font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .rating-header p { font-size: 14px; color: var(--muted); }
+
+  .rating-categories { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+  .rating-cat {
+    background: var(--dark3); border-radius: 12px; padding: 16px;
+  }
+  .cat-name { font-size: 13px; font-weight: 600; margin-bottom: 12px; }
+  .stars { display: flex; gap: 4px; margin-bottom: 8px; }
+  .star {
+    font-size: 22px; cursor: pointer; transition: transform 0.15s;
+    color: rgba(255,255,255,0.15); user-select: none;
+  }
+  .star.filled { color: var(--gold); }
+  .star:hover { transform: scale(1.2); }
+  .cat-rating-val { font-size: 12px; color: var(--muted); }
+
+  .rating-comment { margin-bottom: 16px; }
+  .rating-comment label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+  .rating-comment textarea {
+    width: 100%; padding: 14px; background: var(--dark3);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
+    color: var(--text); font-size: 14px; font-family: 'DM Sans', sans-serif;
+    resize: vertical; min-height: 100px; outline: none; transition: border-color 0.2s;
+  }
+  .rating-comment textarea:focus { border-color: var(--blue); }
+
+  .btn-submit {
+    padding: 12px 28px; border-radius: 10px; border: none;
+    background: linear-gradient(135deg, var(--blue), #1a5276);
+    color: #fff; font-size: 14px; font-weight: 600;
+    font-family: 'Syne', sans-serif; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-submit:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  /* ===== REVIEWS LIST ===== */
+  .reviews-list { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+  .review-card {
+    background: var(--dark3); border-radius: 12px; padding: 16px;
+    animation: fadeIn 0.4s ease;
+  }
+  @keyframes fadeIn { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+  .review-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .review-user { display: flex; align-items: center; gap: 10px; }
+  .review-avatar {
+    width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, var(--blue), #1a5276);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #fff;
+  }
+  .review-name { font-size: 14px; font-weight: 600; }
+  .review-date { font-size: 11px; color: var(--muted); }
+  .review-stars { display: flex; gap: 2px; font-size: 14px; }
+  .review-text { font-size: 13px; color: #aab; line-height: 1.6; }
+  .review-cats { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .review-cat-tag {
+    padding: 3px 10px; border-radius: 20px; font-size: 11px;
+    background: rgba(52,152,219,0.1); color: var(--blue); font-weight: 500;
+  }
+
+  /* ===== SUCCESS TOAST ===== */
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+    background: var(--dark2); border: 1px solid rgba(46,204,113,0.3);
+    border-radius: 12px; padding: 14px 20px;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--green); font-size: 14px; font-weight: 500;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+    transform: translateX(200px); opacity: 0;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .toast.show { transform: translateX(0); opacity: 1; }
+
+  /* ===== ADMIN ONLY: REVIEWS VIEW ===== */
+  .admin-reviews {
+    background: var(--dark2); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px;
+  }
+  .review-admin-card {
+    background: var(--surface); border-radius: 10px; padding: 14px;
+    margin-bottom: 10px; border-left: 3px solid var(--gold);
+  }
+  .avg-score {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 20px;
+    padding: 16px; background: rgba(201,168,76,0.05);
+    border-radius: 12px; border: 1px solid rgba(201,168,76,0.15);
+  }
+  .avg-big { font-family: 'Syne', sans-serif; font-size: 48px; font-weight: 800; color: var(--gold); }
+  .avg-stars { display: flex; gap: 3px; font-size: 20px; }
+  .avg-count { font-size: 13px; color: var(--muted); }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 600px) {
+    .login-card { padding: 32px 24px; }
+    .content { padding: 20px 16px; }
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    .rating-categories { grid-template-columns: 1fr 1fr; }
+    .topbar { padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-anim"></div>
+
+<!-- ========== LOGIN PAGE ========== -->
+<div id="login-page" class="page active">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="logo-icon">J</div>
+      <div class="logo-text">JYVOS <span>Comptable</span></div>
+    </div>
+    <h1 class="login-title">Connexion</h1>
+    <p class="login-sub">Gérez vos finances, boostez vos profits 💰</p>
+
+    <div class="tab-switch">
+      <button class="tab-btn user active" onclick="switchTab('user')">👤 Utilisateur</button>
+      <button class="tab-btn admin" onclick="switchTab('admin')">🔐 Administrateur</button>
+    </div>
+
+    <div class="admin-hint" id="admin-hint">
+      🔒 Accès confidentiel — Réservé aux administrateurs autorisés
+    </div>
+
+    <div class="field">
+      <label>Identifiant</label>
+      <input type="text" id="login-id" placeholder="Votre identifiant" autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Mot de passe</label>
+      <input type="password" id="login-pass" placeholder="••••••••">
+    </div>
+    <div class="field" id="admin-code-field" style="display:none">
+      <label>Code d'accès administrateur</label>
+      <input type="password" id="admin-code" placeholder="Code secret à 6 chiffres">
+    </div>
+
+    <button class="btn-login user-mode" id="btn-login" onclick="doLogin()">Se connecter</button>
+    <div class="error-msg" id="error-msg">❌ Identifiants incorrects. Veuillez réessayer.</div>
+
+    <p style="margin-top:20px;font-size:12px;color:var(--muted);text-align:center">
+      🧪 Test — Utilisateur: <strong>user / user123</strong> | Admin: <strong>admin / admin123 / 123456</strong>
+    </p>
+  </div>
+</div>
+
+<!-- ========== ADMIN DASHBOARD ========== -->
+<div id="admin-page" class="page">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="logo-icon" style="width:36px;height:36px;font-size:15px">J</div>
+      <span style="font-family:'Syne',sans-serif;font-weight:700;font-size:16px">JYVOS</span>
+      <span class="topbar-badge badge-admin">🔐 Admin</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-info">
+        <div class="name">Super Admin</div>
+        <div class="role" style="color:var(--gold)">Accès total</div>
+      </div>
+      <div class="avatar avatar-admin">SA</div>
+      <button class="btn-logout" onclick="logout()">Déconnexion</button>
+    </div>
+  </div>
+
+  <div class="content">
+    <h1 class="page-title">🏦 Tableau de bord Admin</h1>
+    <p class="page-sub">Vue complète et confidentielle de la plateforme</p>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-label">Utilisateurs actifs</div>
+        <div class="stat-value" style="color:var(--blue)">247</div>
+        <div class="stat-change up">▲ +12 ce mois</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Revenus totaux</div>
+        <div class="stat-value" style="color:var(--gold)">123 500</div>
+        <div class="stat-change up">▲ +8.3% FCFA</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Abonnements actifs</div>
+        <div class="stat-value" style="color:var(--green)">189</div>
+        <div class="stat-change up">▲ +5 cette semaine</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Note moyenne</div>
+        <div class="stat-value" id="admin-avg-display" style="color:var(--gold)">—</div>
+        <div class="stat-change" id="admin-avg-sub">Aucun avis encore</div>
+      </div>
+    </div>
+
+    <!-- Utilisateurs -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">👥 Gestion des utilisateurs</div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th><th>Abonnement</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Jean Pascal</td><td>jeanpascal@mail.com</td><td>Gérant</td><td><span class="status-badge status-active">Actif</span></td><td>500 FCFA/mois</td></tr>
+            <tr><td>Marie Ntsama</td><td>marie@mail.com</td><td>Comptable</td><td><span class="status-badge status-active">Actif</span></td><td>500 FCFA/mois</td></tr>
+            <tr><td>Paul Mbarga</td><td>paul@mail.com</td><td>Employé</td><td><span class="status-badge status-pending">En attente</span></td><td>—</td></tr>
+            <tr><td>Sophie Biya</td><td>sophie@mail.com</td><td>Gérant</td><td><span class="status-badge status-inactive">Inactif</span></td><td>Expiré</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Avis des utilisateurs - Vue Admin -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">⭐ Avis & Notations (vue confidentielle)</div>
+      </div>
+      <div class="admin-reviews">
+        <div class="avg-score" id="admin-avg-block">
+          <div>
+            <div class="avg-big" id="avg-score-big">—</div>
+            <div class="avg-stars" id="avg-stars-display">☆☆☆☆☆</div>
+            <div class="avg-count" id="avg-count-text">0 avis</div>
+          </div>
+ 
