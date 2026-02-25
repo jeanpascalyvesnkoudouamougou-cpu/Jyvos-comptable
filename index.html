@@ -1,76 +1,14 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JYVOS Comptable - Auth</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --gold:#c9a84c; --dark:#0a0c0f; --dark2:#12151a; --border:rgba(201,168,76,0.18); --text:#e8eaf0; --muted:#7a8099;
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{font-family:'DM Sans',sans-serif;background:var(--dark);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;}
-.auth-card{background:var(--dark2);padding:32px;border-radius:20px;width:320px;box-shadow:0 20px 40px rgba(0,0,0,.4);}
-.auth-card h2{font-family:'Syne',sans-serif;margin-bottom:16px;color:var(--gold);}
-input{width:100%;padding:12px;margin-bottom:12px;border-radius:10px;border:none;background:var(--dark);color:var(--text);}
-button{width:100%;padding:12px;border:none;border-radius:10px;background:var(--gold);color:var(--dark);font-weight:700;cursor:pointer;}
-.alert{background:#e74c3c;color:#fff;padding:8px;border-radius:8px;margin-bottom:12px;display:none;text-align:center;}
-</style>
-</head>
-<body>
-
-<div id="registerPage" class="auth-card">
-  <h2>Inscription</h2>
-  <div class="alert" id="regAlert"></div>
-  <input type="text" id="regName" placeholder="Nom complet">
-  <input type="email" id="regEmail" placeholder="Email">
-  <input type="password" id="regPass" placeholder="Mot de passe">
-  <button onclick="register()">S'inscrire</button>
-  <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted);cursor:pointer;" onclick="showLogin()">J'ai déjà un compte</p>
-</div>
-
-<div id="loginPage" class="auth-card" style="display:none;">
-  <h2>Connexion</h2>
-  <div class="alert" id="loginAlert"></div>
-  <input type="email" id="loginEmail" placeholder="Email">
-  <input type="password" id="loginPass" placeholder="Mot de passe">
-  <button onclick="login()">Se connecter</button>
-  <p style="text-align:center;margin-top:12px;font-size:12px;color:var(--muted);cursor:pointer;" onclick="showRegister()">Créer un compte</p>
-</div>
-
-<script>
-let users = JSON.parse(localStorage.getItem("users") || "[]");
-
-function showLogin(){document.getElementById("registerPage").style.display="none";document.getElementById("loginPage").style.display="block";}
-function showRegister(){document.getElementById("registerPage").style.display="block";document.getElementById("loginPage").style.display="none";}
-
-function register(){
-  let name=document.getElementById("regName").value;
-  let email=document.getElementById("regEmail").value;
-  let pass=document.getElementById("regPass").value;
-  let alertBox=document.getElementById("regAlert");
-  if(!name||!email||!pass){alertBox.innerText="Tous les champs sont requis";alertBox.style.display="block";return;}
-  if(users.find(u=>u.email===email)){alertBox.innerText="Email déjà utilisé";alertBox.style.display="block";return;}
-  users.push({name,email,pass});
-  localStorage.setItem("users",JSON.stringify(users));
-  alert("Inscription réussie ! Connectez-vous.");
-  showLogin();
-}
-
-function login(){
-  let email=document.getElementById("loginEmail").value;
-  let pass=document.getElementById("loginPass").value;
-  let alertBox=document.getElementById("loginAlert");
-  let user = users.find(u=>u.email===email && u.pass===pass);
-  if(user){
-    localStorage.setItem("currentUser",JSON.stringify(user));
-    window.location.href="dashboard.html"; // Ici tu peux rediriger vers ton dashboard JYVOS
-  }else{
-    alertBox.innerText="Email ou mot de passe incorrect";alertBox.style.display="block";
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      match /transactions/{txId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+    match /users/{userId} {
+      allow read: if request.auth.token.email == "jeanpascalyvesnkoudouamougou@gmail.com";
+    }
   }
 }
-</script>
-
-</body>
-</html>
