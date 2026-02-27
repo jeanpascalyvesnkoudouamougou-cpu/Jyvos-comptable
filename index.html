@@ -791,4 +791,443 @@ function renderDemands(){
       </div>`).join('');
 }
   </script>
-  
+  <script>
+let bankPeriod='jour';
+function switchBankTab(el,p){
+  document.querySelectorAll('.btab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');bankPeriod=p;renderBank(p);
+}
+function getFilter(p){
+  const now=new Date();
+  if(p==='jour'){const s=new Date(now.getFullYear(),now.getMonth(),now.getDate()).getTime();return t=>t>=s;}
+  if(p==='semaine'){const d=now.getDay(),s=new Date(now.getFullYear(),now.getMonth(),now.getDate()-d).getTime();return t=>t>=s;}
+  if(p==='mois'){const s=new Date(now.getFullYear(),now.getMonth(),1).getTime();return t=>t>=s;}
+  return()=>true;
+}
+function renderBank(p){
+  const u=DB.currentUser;
+  const filter=getFilter(p);
+  let src=u&&u.demo?
+    [{type:'in',amount:450000,ts:Date.now()},
+     {type:'out',amount:120000,ts:Date.now()},
+     {type:'in',amount:400000,ts:Date.now()}]:
+    DB.transactions.filter(t=>t.ts&&filter(t.ts));
+  let inc=0,out=0;
+  src.forEach(t=>{if(t.type==='in')inc+=t.amount;else out+=t.amount;});
+  const net=inc-out;
+  const lbl={jour:"aujourd'hui",semaine:'cette semaine',mois:'ce mois'};
+  document.getElementById('bank-rows').innerHTML=
+    `<div class="bank-row"><div class="bank-row-l">📈 Entrées ${lbl[p]}</div><div class="bank-row-v" style="color:var(--green)">${fmt(inc)}</div></div>`+
+    `<div class="bank-row"><div class="bank-row-l">📉 Sorties ${lbl[p]}</div><div class="bank-row-v" style="color:var(--red)">${fmt(out)}</div></div>`+
+    `<div class="bank-total-row"><div class="bank-total-l">💜 Solde net</div><div class="bank-total-v" style="color:${net>=0?'var(--green)':'var(--red)'}">${net>=0?'+':''}${fmt(net)}</div></div>`;
+}
+function refreshDash(){
+  const u=DB.currentUser;if(!u)return;
+  let rev=0,dep=0;
+  if(u.demo){rev=850000;dep=320000;}
+  else DB.transactions.forEach(t=>{if(t.type==='in')rev+=t.amount;else dep+=t.amount;});
+  s('capital-val',fmt(rev-dep));
+  s('rev-val',fmt(rev));
+  s('dep-val',fmt(dep));
+  s('tx-count',DB.transactions.length);
+  s('stock-count',DB.stock.length);
+  s('alert-count',DB.stock.filter(x=>x.qty<=x.min).length);
+  const an=DB.notes.filter(n=>!n.done).length;
+  s('notes-count',an);
+  document.getElementById('note-dot').style.display=an>0?'block':'none';
+  renderBank(bankPeriod);
+  const last=DB.transactions.slice(-3).reverse();
+  document.getElementById('dash-tx').innerHTML=last.length?
+    last.map(txHtml).join(''):
+    '<div class="empty"><div class="empty-ic">💳</div>Aucune transaction</div>';
+}
+function addTransaction(){
+  const type=g('tx-type'),desc=g('tx-desc'),
+        amount=parseFloat(g('tx-amount'))||0,cat=g('tx-cat');
+  if(!desc||!amount){toast('Remplissez tous les champs','e');return;}
+  DB.transactions.push({id:Date.now(),type,desc,amount,cat,date:today(),ts:Date.now()});
+  saveDB();closeModal('tx-modal');
+  document.getElementById('tx-desc').value='';
+  document.getElementById('tx-amount').value='';
+  renderTx();toast('Transaction enregistrée ✅');
+}
+function renderTx(){
+  const txs=DB.transactions.slice().reverse();
+  document.getElementById('tx-list').innerHTML=txs.length?
+    txs.map(txHtml).join(''):
+    '<div class="empty"><div class="empty-ic">💳</div>Aucune transaction</div>';
+}
+function txHtml(t){
+  return `<div class="txi">
+    <div class="txic ${t.type}">${t.type==='in'?'📈':'📉'}</div>
+    <div class="txd"><div class="txn">${t.desc}</div>
+    <div class="txdt">${t.cat} · ${t.date}</div></div>
+    <div class="txa ${t.type}">${t.type==='in'?'+':'-'}${fmt(t.amount)}</div>
+  </div>`;
+}
+function addStock(){
+  const nom=g('st-nom'),qty=parseInt(g('st-qty'))||0,
+        min=parseInt(g('st-min'))||5,prix=parseFloat(g('st-prix'))||0;
+  if(!nom){toast('Entrez un nom','e');return;}
+  DB.stock.push({id:Date.now(),nom,qty,min,prix});
+  saveDB();closeModal('stock-modal');
+  document.getElementById('st-nom').value='';
+  document.getElementById('st-qty').value='';
+  renderStock();toast('Produit ajouté ✅');
+}
+function renderStock(){
+  const list=document.getElementById('stock-list');
+  if(!DB.stock.length){
+    list.innerHTML='<div class="empty"><div class="empty-ic">📦</div>Aucun produit</div>';return;
+  }
+  list.innerHTML=DB.stock.map(x=>{
+    const low=x.qty<=x.min;
+    return `<div class="stock-item">
+      <div class="stock-ic">📦</div>
+      <div class="stock-d"><div class="stock-n">${x.nom}</div>
+      <div class="stock-c">${fmt(x.prix)} · Min: ${x.min}</div></div>
+      <div style="text-align:right">
+        <div class="stock-qty ${low?'low':'ok'}">${x.qty}</div>
+        <div class="stock-alert ${low?'low':'ok'}">${low?'⚠️ Bas':'✅ OK'}</div>
+      </div></div>`;
+  }).join('');
+}
+function addNote(){
+  const type=g('note-type'),titre=g('note-titre'),
+        body=g('note-body'),date=g('note-date'),prio=g('note-prio');
+  if(!titre){toast('Entrez un titre','e');return;}
+  DB.notes.push({id:Date.now(),type,titre,body,date,prio,done:false});
+  saveDB();closeModal('note-modal');
+  document.getElementById('note-titre').value='';
+  document.getElementById('note-body').value='';
+  renderNotes();refreshDash();toast('Rappel créé ✅');
+  if(type==='rappel'&&date){
+    const ms=new Date(date).getTime()-Date.now();
+    if(ms>0&&ms<2592000000)setTimeout(()=>toast('⏰ RAPPEL : '+titre,'rappel'),ms);
+  }
+}
+function renderNotes(){
+  const notes=DB.notes.slice().reverse();
+  document.getElementById('notes-list').innerHTML=notes.length?notes.map(n=>`
+    <div class="note-item ${n.prio==='urgent'?'urgent':''} ${n.done?'done':''}">
+      <div class="note-top">
+        <div class="note-ic ${n.type}">${n.type==='rappel'?'⏰':'📝'}</div>
+        <div style="flex:1">
+          <div class="note-ti">${n.titre}${n.prio==='urgent'?' 🔴':''}</div>
+          <div class="note-bd">${n.body||''}</div>
+        </div>
+      </div>
+      <div class="note-foot">
+        <div>${n.date?`<span class="alarm-badge">⏰ ${new Date(n.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>`:'<span style="font-size:11px;color:var(--muted)">Note permanente</span>'}</div>
+        <div class="note-btns">
+          ${!n.done?`<button class="nbtn ok" onclick="doneNote(${n.id})">✅ Fait</button>`:'<span style="font-size:11px;color:var(--green)">✅ Terminé</span>'}
+          <button class="nbtn del" onclick="delNote(${n.id})">🗑️</button>
+        </div>
+      </div>
+    </div>`).join(''):
+    '<div class="empty"><div class="empty-ic">📝</div>Aucun rappel</div>';
+}
+function doneNote(id){
+  const n=DB.notes.find(x=>x.id===id);if(n)n.done=true;
+  saveDB();renderNotes();refreshDash();
+}
+function delNote(id){
+  DB.notes=DB.notes.filter(x=>x.id!==id);
+  saveDB();renderNotes();refreshDash();
+}
+function checkRappels(){
+  const now=Date.now();
+  DB.notes.filter(n=>n.type==='rappel'&&!n.done&&n.date).forEach(n=>{
+    const t=new Date(n.date).getTime();
+    if(t<=now&&t>now-120000)toast('⏰ RAPPEL : '+n.titre,'rappel');
+  });
+}
+function renderEpargne(){
+  let rev=0,dep=0;
+  const u=DB.currentUser;
+  if(u&&u.demo){rev=850000;dep=320000;}
+  else DB.transactions.forEach(t=>{if(t.type==='in')rev+=t.amount;else dep+=t.amount;});
+  let score=0,msg='',conseils=[];
+  if(rev===0){
+    score=0;msg='Ajoutez vos transactions pour vos conseils 💡';
+    conseils=[{ic:'💡',t:'Commencez le suivi',d:'Enregistrez revenus et dépenses dans Finances.',tag:'ti'}];
+  }else{
+    const ratio=dep/rev,ep=rev-dep;
+    score=Math.max(0,Math.min(100,Math.round((1-ratio)*100)));
+    if(score>=80)msg='🏆 Excellent ! Finances exemplaires.';
+    else if(score>=60)msg='👍 Bien ! Quelques optimisations possibles.';
+    else if(score>=40)msg='⚠️ Attention : dépenses élevées.';
+    else msg='🚨 Critique : dépenses > revenus !';
+    if(ratio>0.8)conseils.push({ic:'🚨',t:'Réduire les dépenses',
+      d:`Dépenses = ${Math.round(ratio*100)}% des revenus. Éliminez le non-essentiel.`,tag:'tc'});
+    if(ep>0)conseils.push({ic:'🏦',t:`Épargnez ${fmt(Math.round(ep*0.2))}`,
+      d:'Mettez 20% de votre bénéfice de côté chaque mois.',tag:score>=60?'tok':'ti'});
+    conseils.push({ic:'📊',t:'Diversifiez vos revenus',
+      d:"Ne dépendez pas d'une seule source de revenus.",tag:'ti'});
+    if(DB.stock.some(x=>x.qty<=x.min))conseils.push({ic:'📦',t:'Réapprovisionnez le stock',
+      d:'Des produits en rupture = ventes perdues.',tag:'tc'});
+    conseils.push({ic:'💳',t:'Acceptez le Mobile Money',
+      d:'Orange Money, MTN MoMo augmentent les ventes de 20 à 40%.',tag:'tok'});
+    if(ratio<0.5&&ep>0)conseils.push({ic:'🚀',t:'Investissez vos excédents',
+      d:`Réinvestissez ${fmt(Math.round(ep*0.3))} dans votre activité.`,tag:'tok'});
+  }
+  document.getElementById('ep-score').textContent=score+'/100';
+  document.getElementById('ep-fill').style.width=score+'%';
+  document.getElementById('ep-msg').textContent=msg;
+  document.getElementById('conseils-list').innerHTML=conseils.map(c=>`
+    <div class="conseil-item">
+      <div class="conseil-ic">${c.ic}</div>
+      <div><div class="conseil-t">${c.t}</div>
+      <div class="conseil-d">${c.d}</div>
+      <span class="conseil-tag ${c.tag}">${c.tag==='tc'?'⚠️ Critique':c.tag==='ti'?'💡 Important':'✅ Bon signe'}</span>
+      </div>
+    </div>`).join('');
+}
+  </script>
+  <script>
+let cCols=['Désignation','Qté','Prix Unit.','Montant'];
+let cRows=[['Produit 1','10','5000','50000'],['Produit 2','5','12000','60000'],['Produit 3','20','2500','50000'],['','','','']];
+
+function initCalc(){renderCalc();updateTVA();}
+function renderCalc(){
+  const t=document.getElementById('calc-table');
+  let h='<thead><tr><th style="width:28px;">#</th>';
+  cCols.forEach((c,i)=>h+=`<th><input value="${c}" onchange="cCols[${i}]=this.value;updateTVA()"></th>`);
+  h+='</tr></thead><tbody>';
+  cRows.forEach((row,ri)=>{
+    h+=`<tr><td style="text-align:center;padding:6px 4px;font-size:10px;color:var(--muted2)">${ri+1}</td>`;
+    row.forEach((cell,ci)=>{
+      const isLabel=ci===0;
+      h+=`<td class="${isLabel?'rl':''}">
+        <input type="${isLabel?'text':'number'}" value="${cell}"
+        oninput="cRows[${ri}][${ci}]=this.value;autoRow(${ri});updateTVA()"
+        placeholder="-"></td>`;
+    });
+    h+='</tr>';
+  });
+  h+='<tr class="tr"><td style="text-align:center;font-size:11px;color:var(--purple);padding:6px 4px;">∑</td>';
+  cCols.forEach((c,ci)=>{
+    if(ci===0){h+=`<td class="rl"><input value="TOTAUX" readonly></td>`;}
+    else{
+      const tot=cRows.reduce((s,r)=>s+(parseFloat(r[ci])||0),0);
+      h+=`<td><input value="${tot.toLocaleString('fr-FR')}" readonly></td>`;
+    }
+  });
+  h+='</tr></tbody>';
+  t.innerHTML=h;
+}
+function autoRow(ri){
+  if(cCols.length>=4){
+    const qty=parseFloat(cRows[ri][1])||0;
+    const prix=parseFloat(cRows[ri][2])||0;
+    if(qty>0&&prix>0){
+      cRows[ri][3]=(qty*prix).toString();
+      renderCalc();
+    }
+  }
+}
+function updateTVA(){
+  const lastCol=cRows.reduce((s,r)=>s+(parseFloat(r[cCols.length-1])||0),0);
+  const ht=lastCol;
+  const tva=ht*0.1925;
+  const ttc=ht+tva;
+  document.getElementById('tva-ht').textContent=fmt(ht);
+  document.getElementById('tva-val').textContent=fmt(tva);
+  document.getElementById('tva-ttc').textContent=fmt(ttc);
+  const totalPrix=cRows.reduce((s,r)=>s+(parseFloat(r[2])||0),0);
+  document.getElementById('tva-marge').textContent=
+    totalPrix>0?fmt(ht-totalPrix)+' ('+Math.round((ht-totalPrix)/ht*100||0)+'%)':'—';
+  const grid=document.getElementById('calc-grid');
+  const colors=['var(--accent)','var(--gold)','var(--green)'];
+  grid.innerHTML=cCols.slice(1).map((c,i)=>{
+    const tot=cRows.reduce((s,r)=>s+(parseFloat(r[i+1])||0),0);
+    return `<div class="calc-card">
+      <div class="calc-card-ic">📊</div>
+      <div class="calc-card-lb">${c}</div>
+      <div class="calc-card-v" style="color:${colors[i]||'var(--muted)'}">
+        ${tot.toLocaleString('fr-FR')}
+      </div></div>`;
+  }).join('');
+}
+function addCalcRow(){cRows.push(new Array(cCols.length).fill(''));renderCalc();updateTVA();}
+function addCalcCol(){cCols.push('Col '+(cCols.length));cRows.forEach(r=>r.push(''));renderCalc();updateTVA();}
+function delLastRow(){if(cRows.length>1){cRows.pop();renderCalc();updateTVA();}}
+function clearCalc(){
+  cCols=['Désignation','Qté','Prix Unit.','Montant'];
+  cRows=[['','','',''],['','','',''],['','','','']];
+  renderCalc();updateTVA();
+}
+function renderProfil(){
+  const u=DB.currentUser;if(!u)return;
+  s('profil-av',initials(u.nom));
+  s('profil-nom',u.nom);
+  s('profil-email',u.email||'—');
+  s('profil-ent',u.ent||'—');
+  s('profil-role',roleLabel(u.role));
+  const ts=trialStatus(u);
+  s('profil-abo',u.paid||u.demo?'✅ Accès à vie activé':
+    ts.trial?`🎁 Essai · ${ts.days} jours restants`:'⏳ En attente activation');
+  s('profil-tx',DB.transactions.length+' transactions');
+}
+function renderAdminStats(){
+  if(!DB.demands)DB.demands=[];
+  s('adm-u',DB.users.length);
+  s('adm-p',DB.users.filter(u=>u.paid).length);
+  s('adm-dem',DB.demands.filter(d=>d.status==='pending').length);
+  s('adm-r',(DB.users.filter(u=>u.paid).length*500).toLocaleString('fr-FR')+' FCFA');
+}
+function renderAdminUsers(){
+  const list=document.getElementById('adm-ul');
+  if(!DB.users.length){
+    list.innerHTML='<div class="empty">Aucun utilisateur</div>';return;
+  }
+  list.innerHTML=DB.users.map(u=>{
+    const ts=trialStatus(u);
+    const status=u.paid?'✅ Activé':ts.trial?`🎁 Essai (${ts.days}j)`:'🔒 Expiré';
+    const col=u.paid?'var(--green)':ts.trial?'var(--accent)':'var(--red)';
+    return `<div class="txi">
+      <div class="txic in">${initials(u.nom)}</div>
+      <div class="txd">
+        <div class="txn">${u.nom}</div>
+        <div class="txdt">${u.email} · ${roleLabel(u.role)}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <span style="font-size:10px;padding:2px 7px;border-radius:20px;
+          background:rgba(255,255,255,.05);color:${col};">${status}</span><br>
+        ${!u.paid?
+          `<button onclick="activateUser(${u.id})"
+            style="margin-top:4px;padding:3px 8px;border-radius:7px;
+            background:var(--green-dim);color:var(--green);
+            border:1px solid rgba(0,200,150,.2);font-size:10px;
+            font-weight:700;cursor:pointer;font-family:inherit;">✅ Activer</button>`:
+          `<button onclick="deactivateUser(${u.id})"
+            style="margin-top:4px;padding:3px 8px;border-radius:7px;
+            background:var(--red-dim);color:var(--red);
+            border:1px solid rgba(255,77,109,.2);font-size:10px;
+            font-weight:700;cursor:pointer;font-family:inherit;">🔒 Bloquer</button>`}
+      </div></div>`;
+  }).join('');
+}
+function activateUser(id){
+  const u=DB.users.find(u=>u.id===id);
+  if(u){u.paid=true;saveDB();renderAdminUsers();renderAdminStats();toast('✅ Utilisateur activé');}
+}
+function deactivateUser(id){
+  const u=DB.users.find(u=>u.id===id);
+  if(u){u.paid=false;saveDB();renderAdminUsers();renderAdminStats();toast('Utilisateur bloqué','e');}
+}
+function renderAdminPay(){
+  const paid=DB.users.filter(u=>u.paid);
+  document.getElementById('adm-pl').innerHTML=paid.length?
+    paid.map(u=>`<div class="txi">
+      <div class="txic in">✅</div>
+      <div class="txd"><div class="txn">${u.nom}</div>
+      <div class="txdt">${u.email}</div></div>
+      <div class="txa in">500 FCFA</div>
+    </div>`).join(''):
+    '<div class="empty">Aucun paiement confirmé</div>';
+}
+  </script>
+  <script>
+const KB={
+  bonjour:['👋 Bonjour ! Je suis **JYVOS IA**.\n\nJe peux vous aider avec :\n• 📊 Finances · 💡 Épargne\n• 📦 Stock · 🏦 Banque\n• 🧮 Calculs · 📝 Rappels\n• 💰 Paiement\n\nQue puis-je faire pour vous ? 😊'],
+  transaction:['💳 Enregistrer une transaction :\n1. Onglet **Finances** → **+ Ajouter**\n2. Choisissez 📈 Entrée ou 📉 Sortie\n3. Description, montant, catégorie\n4. **Enregistrer** ✅'],
+  stock:['📦 Gérer le stock :\n1. Onglet **Stock** → **+ Produit**\n2. Nom, quantité, prix, seuil minimum\n\nAlerte automatique quand stock bas ! ⚠️'],
+  epargne:['💡 Conseils épargne :\n\n• Épargnez **20%** de vos bénéfices\n• Constituez **3 mois** de réserve\n• Réduisez les dépenses non essentielles\n\nVoir onglet **Épargne** pour votre score personnalisé !'],
+  rappel:['📝 Créer un rappel :\n1. Onglet **Rappels** → **+ Ajouter**\n2. Choisissez "Rappel avec alarme"\n3. Titre, description, date/heure\n\nAlerte automatique ! ⏰'],
+  paiement:['💰 Paiement JYVOS :\n\n🎁 **7 jours gratuits** à l\'inscription\n✅ Ensuite **500 FCFA unique** · Accès à vie\n\n📱 Orange Money → **691 928 061**\nNom : NGAH NTSAMA\n\nAprès paiement → cliquez "J\'ai payé · Demander l\'accès"'],
+  banque:['🏦 Totalisation bancaire :\n\nTableau de bord → section 🏦 :\n• 📅 Totaux du **jour**\n• 📆 Totaux de la **semaine**\n• 🗓️ Totaux du **mois**\n\nSolde net = Entrées - Sorties\nIdéal pour la **clôture journalière** !'],
+  calcul:['🧮 Tableau de calcul Excel :\n\n1. Onglet **Calculs** en bas\n2. Remplissez Qté et Prix → Montant calculé auto\n3. Boutons + Ligne / + Colonne\n4. **TVA 19.25%** et **Total TTC** automatiques\n5. **Marge brute** calculée\n\nComme Excel mais sur mobile ! 📱'],
+  default:['Je suis là pour vous aider !\n• 📊 Finances · 💡 Épargne · 📦 Stock\n• 🏦 Banque · 🧮 Calculs · 💰 Paiement']
+};
+function getReply(msg){
+  const m=msg.toLowerCase();
+  if(m.includes('bonjour')||m.includes('salut')||m.includes('bonsoir')||m.includes('hello'))return rnd(KB.bonjour);
+  if(m.includes('calcul')||m.includes('excel')||m.includes('tableau')||m.includes('tva'))return rnd(KB.calcul);
+  if(m.includes('transaction')||m.includes('enregistr'))return rnd(KB.transaction);
+  if(m.includes('stock')||m.includes('produit'))return rnd(KB.stock);
+  if(m.includes('rappel')||m.includes('note')||m.includes('alarme'))return rnd(KB.rappel);
+  if(m.includes('paiement')||m.includes('500')||m.includes('orange')||m.includes('essai'))return rnd(KB.paiement);
+  if(m.includes('épargn')||m.includes('economi')||m.includes('conseil'))return rnd(KB.epargne);
+  if(m.includes('banqu')||m.includes('total')||m.includes('clôtur'))return rnd(KB.banque);
+  let rev=0,dep=0;
+  const u=DB.currentUser;
+  if(u&&u.demo){rev=850000;dep=320000;}
+  else DB.transactions.forEach(t=>{if(t.type==='in')rev+=t.amount;else dep+=t.amount;});
+  if(m.includes('finance')||m.includes('capital')||m.includes('argent')||m.includes('analys')){
+    if(rev===0)return '📊 Pas encore de transactions. Onglet **Finances** → **+ Ajouter** !';
+    const ep=rev-dep,ratio=dep/rev;
+    return `📊 **Votre situation :**\n\n💰 Revenus : ${fmt(rev)}\n📉 Dépenses : ${fmt(dep)}\n💚 Capital : ${fmt(ep)}\n📈 Score : ${Math.round((1-ratio)*100)}/100\n\n${ep>0?`✅ Bénéficiaire ! Épargnez ${fmt(Math.round(ep*0.2))} (20%).`:'🚨 Dépenses > Revenus. Réduisez les charges.'}`;
+  }
+  return rnd(KB.default);
+}
+let aiOpen=false;
+function openAI(){
+  aiOpen=true;
+  document.getElementById('ai-ov').classList.add('open');
+  const m=document.getElementById('ai-msgs');
+  if(!m.children.length)addMsg('b',rnd(KB.bonjour));
+}
+function closeAI(){aiOpen=false;document.getElementById('ai-ov').classList.remove('open');}
+function sendAI(){
+  const inp=document.getElementById('ai-input');
+  const msg=inp.value.trim();if(!msg)return;
+  inp.value='';askAI(msg);
+}
+function askAI(msg){
+  if(!aiOpen)openAI();
+  addMsg('u',msg);
+  const tp=document.createElement('div');
+  tp.className='tping';tp.id='tp';
+  tp.innerHTML='<div class="tdot"></div><div class="tdot"></div><div class="tdot"></div>';
+  document.getElementById('ai-msgs').appendChild(tp);
+  scrollAI();
+  setTimeout(()=>{
+    const t=document.getElementById('tp');if(t)t.remove();
+    addMsg('b',getReply(msg));
+  },800);
+}
+function addMsg(role,text){
+  const m=document.getElementById('ai-msgs');
+  const d=document.createElement('div');
+  d.className='bbl '+role;
+  d.innerHTML=text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')+
+    `<div class="bt">${role==='b'?'🤖 JYVOS IA':'Vous'} · ${new Date().toLocaleTimeString('fr',{hour:'2-digit',minute:'2-digit'})}</div>`;
+  m.appendChild(d);scrollAI();
+}
+function scrollAI(){const m=document.getElementById('ai-msgs');m.scrollTop=m.scrollHeight;}
+function g(id){return(document.getElementById(id)||{}).value||'';}
+function s(id,val){const el=document.getElementById(id);if(el)el.textContent=val;}
+function fmt(n){return Number(n).toLocaleString('fr-FR')+' FCFA';}
+function today(){return new Date().toLocaleDateString('fr');}
+function initials(nom){return(nom||'?').split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase();}
+function roleLabel(r){return r==='gerant'?'Gérant':r==='comptable'?'Comptable':'Employé';}
+function rnd(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function showAlert(el,msg,type){
+  el.textContent=msg;
+  el.className='al show al-'+(type==='e'?'e':'ok');
+}
+function toast(msg,type){
+  const d=document.createElement('div');
+  d.style.cssText='position:fixed;top:65px;right:14px;z-index:999;padding:9px 14px;border-radius:20px;font-size:12px;font-weight:700;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:pop .2s ease;max-width:260px;line-height:1.4;';
+  d.style.background=type==='rappel'?'var(--gold)':type==='e'?'var(--red)':'var(--green)';
+  d.style.color='#fff';
+  d.textContent=msg;
+  document.body.appendChild(d);
+  setTimeout(()=>d.remove(),3500);
+}
+document.querySelectorAll('.mb').forEach(m=>m.addEventListener('click',e=>{
+  if(e.target===m)m.classList.remove('open');
+}));
+if(DB.currentUser){
+  const u=DB.currentUser;
+  const ts=trialStatus(u);
+  if(!ts.ok&&!u.demo&&!u.paid){
+    showPage('blocked-page');checkPending();
+  }else{
+    enterApp(u);
+  }
+}
+</script>
+</body>
+</html>
